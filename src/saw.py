@@ -52,8 +52,9 @@ def hitung_matriks_keputusan(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def normalisasi(matriks: pd.DataFrame) -> pd.DataFrame:
-    """Normalisasi SAW untuk kriteria benefit: r = x / max."""
-    return matriks / matriks.max()
+    """Normalisasi min-max untuk kriteria benefit: r = (x - min) / (max - min)."""
+    rentang = (matriks.max() - matriks.min()).replace(0, 1)
+    return (matriks - matriks.min()) / rentang
 
 
 def hitung_terbobot(r: pd.DataFrame, bobot: dict) -> pd.DataFrame:

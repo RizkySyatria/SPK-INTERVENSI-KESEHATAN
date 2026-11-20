@@ -193,10 +193,13 @@ with tab_tahapan:
         st.caption(f"Total bobot: {sum(bobot.values()) * 100:.2f}%")
 
     with tab_norm:
-        st.write("Normalisasi kriteria benefit dengan membagi nilai terhadap nilai maksimum kolomnya:")
-        st.latex(r"r_{ij} = \frac{x_{ij}}{\max_i(x_{ij})}")
-        st.write("Nilai maksimum tiap kriteria:")
-        st.dataframe(hasil["matriks"].max().to_frame("Maksimum").T.round(2), use_container_width=True)
+        st.write("Normalisasi kriteria benefit dengan metode min-max, sehingga nilai terkecil menjadi 0 dan terbesar menjadi 1:")
+        st.latex(r"r_{ij} = \frac{x_{ij} - \min_i(x_{ij})}{\max_i(x_{ij}) - \min_i(x_{ij})}")
+        st.write("Nilai minimum dan maksimum tiap kriteria:")
+        st.dataframe(
+            pd.DataFrame({"Minimum": hasil["matriks"].min(), "Maksimum": hasil["matriks"].max()}).T.round(2),
+            use_container_width=True,
+        )
         st.dataframe(hasil["normalisasi"].round(4), use_container_width=True)
 
     with tab_terbobot:
@@ -256,6 +259,12 @@ with tab_sens:
         m4.metric("Spearman ROC vs Custom", f"{korelasi.loc['ROC (resmi)', 'Custom']:.4f}", border=True)
 
         # Bump chart
+        urutan_roc = peringkat.index.tolist()
+        sorot = st.multiselect(
+            "Sorot kecamatan (lainnya ditampilkan abu-abu)",
+            urutan_roc,
+            default=urutan_roc[:3],
+        )
         panjang = peringkat.reset_index().melt(
             id_vars="Kecamatan", var_name="Skenario", value_name="Peringkat"
         )
@@ -263,10 +272,24 @@ with tab_sens:
             panjang, x="Skenario", y="Peringkat", color="Kecamatan", markers=True,
             category_orders={"Skenario": list(skenario.keys())},
         )
-        fig_bump.update_yaxes(autorange="reversed", dtick=1)
-        fig_bump.update_layout(height=600, xaxis_title=None)
+        warna_sorot = px.colors.qualitative.Bold
+        for trace in fig_bump.data:
+            if trace.name in sorot:
+                warna = warna_sorot[sorot.index(trace.name) % len(warna_sorot)]
+                trace.update(line=dict(width=4, color=warna),
+                             marker=dict(size=9, color=warna), showlegend=True)
+            else:
+                trace.update(line=dict(width=1.5, color="#C9D1D4"),
+                             marker=dict(size=5, color="#C9D1D4"), showlegend=False)
+        # garis yang disorot digambar paling akhir supaya berada di atas
+        fig_bump.data = tuple(sorted(fig_bump.data, key=lambda t: t.name in sorot))
+        fig_bump.update_yaxes(range=[len(peringkat) + 0.5, 0.5], dtick=1, title="Peringkat")
+        fig_bump.update_layout(
+            height=600, xaxis_title=None,
+            legend=dict(title=None, orientation="h", yanchor="bottom", y=1.02, x=0),
+        )
         st.plotly_chart(fig_bump, use_container_width=True)
-
+        
         # Tabel selisih peringkat
         tabel = peringkat.copy()
         tabel["Δ Sama rata"] = tabel["Sama rata"] - tabel["ROC (resmi)"]
